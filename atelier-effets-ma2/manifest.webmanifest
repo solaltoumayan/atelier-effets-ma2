@@ -1,0 +1,16 @@
+{
+  "name": "Atelier Effets MA2",
+  "short_name": "Effets MA2",
+  "description": "Simulateur de layout grandMA2 pour s'entraîner aux effets dimmer et couleur.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#121418",
+  "theme_color": "#121418",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

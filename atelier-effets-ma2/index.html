@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#121418">
+<meta name="description" content="Simulateur de layout grandMA2 pour s'entraîner aux effets.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Atelier Effets MA2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: layout view (stage) on top, console-style parameter panel below; one screen, only the panel scrolls. Deliberate single dark theme, like the desk. */
+:root{
+  --bg:#121418; --stage:#0a0b0d; --panel:#181b20; --raise:#21252c; --line:#2d333c;
+  --fg:#e7e9ec; --muted:#8c95a2; --accent:#f3b23a; --accent-ink:#1b1404; --danger:#e8634f;
+  --f-label:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html{height:100%;box-sizing:border-box}
+*,*::before,*::after{box-sizing:inherit}
+body{height:100%;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;overflow:hidden}
+.app{height:100%;max-width:760px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:10px;padding-block:10px 0}
+
+.top{display:flex;align-items:center;gap:12px}
+.brand{font-family:var(--f-label);font-weight:600;font-size:19px;letter-spacing:.02em;display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.brand b{color:var(--accent);font-weight:700}
+.bt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+@media (max-width:420px){.brand .long{display:none}}
+.mark{width:12px;height:12px;border-radius:3px;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+
+.pages{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:0 0 auto}
+.pages::-webkit-scrollbar{display:none}
+.pg{flex:0 0 auto;max-width:170px;font-family:var(--f-label);font-weight:600;font-size:14px;letter-spacing:.02em;padding:6px 11px;border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:7px;display:flex;gap:7px;align-items:center;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pg[aria-pressed="true"]{color:var(--fg);border-color:var(--accent);background:var(--raise)}
+.pgn{font-family:var(--f-num);font-size:11px;color:var(--accent)}
+.pg.add{color:var(--accent);border-style:dashed}
+.paste{width:100%;min-height:64px;resize:vertical;padding:8px 9px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;font-family:var(--f-num);font-size:12px;margin-block:4px}
+.name{flex:1;min-width:0;padding:7px 9px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;font-family:var(--f-body);font-size:15px}
+h3.sub.first{border-top:0;margin-top:4px;padding-top:0}
+.stage{flex:0 0 42%;min-height:190px;position:relative;background:var(--stage);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stage.edit{border-color:var(--accent)}
+#cv{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+.hud{position:absolute;left:10px;top:8px;pointer-events:none;font-family:var(--f-label);font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;gap:10px}
+.hud .m{color:var(--accent)}
+
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:4px}
+.tab{font-family:var(--f-label);font-weight:600;font-size:15px;letter-spacing:.06em;text-transform:uppercase;background:transparent;color:var(--muted);border:0;border-radius:6px;padding:8px 4px;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--raise);color:var(--fg)}
+.led{width:7px;height:7px;border-radius:50%;background:var(--line)}
+.led.on{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+
+.panel{flex:1;overflow-y:auto;padding-block:4px 28px;display:flex;flex-direction:column;gap:2px;-webkit-overflow-scrolling:touch}
+
+.row{display:grid;grid-template-columns:78px minmax(0,1fr) 62px;align-items:center;gap:10px;padding-block:5px}
+.row.wide{grid-template-columns:78px minmax(0,1fr)}
+.lbl{font-family:var(--f-label);font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.val{font-family:var(--f-num);font-size:13px;text-align:right;font-variant-numeric:tabular-nums;color:var(--fg)}
+h3.sub{font-family:var(--f-label);font-weight:600;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:14px 0 4px;padding-top:10px;border-top:1px solid var(--line)}
+.hint{color:var(--muted);font-size:13.5px;line-height:1.45;margin:2px 0 6px;max-width:62ch}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--f-label);font-weight:600;font-size:14px;letter-spacing:.03em;padding:6px 11px;border:1px solid var(--line);background:var(--raise);color:var(--fg);border-radius:6px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+.btn{font-family:var(--f-label);font-weight:600;font-size:14.5px;letter-spacing:.04em;padding:8px 13px;border:1px solid var(--line);background:var(--raise);color:var(--fg);border-radius:7px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;justify-content:center}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:disabled{background:var(--raise);color:var(--muted);border-color:var(--line)}
+.btn.wide{width:100%;margin-block:6px 4px}
+.btn.danger{color:var(--danger)}
+.btn.danger.armed{background:var(--danger);color:#1b0805;border-color:var(--danger)}
+.btn.toggle[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-block:4px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.layerhead{display:flex;align-items:center;gap:12px;padding-block:6px 2px}
+.lh-text{flex:1;min-width:0}
+.lh-title{font-family:var(--f-label);font-weight:700;font-size:20px;letter-spacing:.03em}
+.lh-sub{font-family:var(--f-num);font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.scope{width:100%;height:96px;display:block;background:var(--stage);border:1px solid var(--line);border-radius:8px;margin-top:6px}
+.cap{font-size:12px;color:var(--muted);margin:4px 0 6px}
+
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:30px;background:transparent;margin:0;--p:50%}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(to right,var(--accent) var(--p),var(--line) var(--p))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--fg);border:4px solid var(--accent);margin-top:-9px}
+input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:var(--line)}
+input[type=range]::-moz-range-progress{height:4px;border-radius:2px;background:var(--accent)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--fg);border:4px solid var(--accent)}
+
+.stepper{display:flex;align-items:center;gap:0;justify-self:start;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.sbtn{width:40px;height:34px;background:var(--raise);color:var(--fg);border:0;font-size:18px;cursor:pointer}
+.stepper .sval{min-width:54px;text-align:center;font-family:var(--f-num);font-size:14px;font-variant-numeric:tabular-nums;background:var(--panel);color:var(--fg);border:0;align-self:stretch;display:flex;align-items:center;justify-content:center;cursor:text}
+.row .val{background:transparent;border:0;border-bottom:1px dashed var(--line);padding:5px 0;cursor:text;justify-self:end;white-space:nowrap}
+.typein{width:62px;padding:6px 4px;background:var(--panel);color:var(--fg);border:1px solid var(--accent);border-radius:6px;font-family:var(--f-num);font-size:14px;text-align:right;font-variant-numeric:tabular-nums}
+.stepper .typein{width:54px;border-radius:0;text-align:center}
+
+.addrow{display:flex;align-items:center;gap:8px;padding-block:4px;flex-wrap:wrap}
+.addrow .lbl{flex:0 0 70px}
+.addrow .sp{flex:1}
+.num{width:58px;padding:7px 6px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;font-family:var(--f-num);font-size:14px;text-align:center}
+.x{color:var(--muted);font-family:var(--f-num)}
+.order{font-family:var(--f-num);font-size:12.5px;color:var(--fg);line-height:1.6;word-break:break-word;margin:2px 0 4px}
+.colors{display:flex;gap:14px;align-items:center}
+.colors label{display:flex;align-items:center;gap:6px;font-family:var(--f-num);font-size:13px;color:var(--muted)}
+input[type=color]{width:46px;height:32px;border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:2px}
+</style>
+<style>
+/* réglages propres à l'app installée */
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{overscroll-behavior:none}
+body{margin:0;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div class="brand"><span class="mark"></span><span class="bt"><span class="long">Atelier </span>Effets <b>MA2</b></span></div>
+    <button class="btn" id="stomp" type="button">Stomp</button>
+    <button class="btn" id="play" type="button"></button>
+  </header>
+
+  <nav class="pages" id="pages" aria-label="Pages de layout"></nav>
+
+  <div class="stage" id="stage">
+    <canvas id="cv" aria-label="Layout des fixtures"></canvas>
+    <div class="hud"><span class="m" id="hudMode"></span><span id="hudSel"></span></div>
+  </div>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="layout" type="button">Layout</button>
+    <button class="tab" role="tab" data-tab="dim" type="button"><span class="led" id="ledDim"></span>Dimmer</button>
+    <button class="tab" role="tab" data-tab="col" type="button"><span class="led" id="ledCol"></span>Couleur</button>
+  </nav>
+
+  <section class="panel" id="panel"></section>
+</div>
+
+<script>
+(function(){
+const STORE='ma2-fx-atelier-v2';
+// vrai sur le site GitHub Pages (index.html complet), faux dans l'aperçu Claude
+const STANDALONE=!!document.querySelector('link[rel="manifest"]');
+const $=s=>document.querySelector(s);
+const dpr=Math.min(3,window.devicePixelRatio||1);
+const css=getComputedStyle(document.documentElement);
+const C={stage:css.getPropertyValue('--stage').trim(),line:css.getPropertyValue('--line').trim(),muted:css.getPropertyValue('--muted').trim(),accent:css.getPropertyValue('--accent').trim(),ink:css.getPropertyValue('--accent-ink').trim(),fg:css.getPropertyValue('--fg').trim()};
+const OFF=[30,33,39];
+
+/* ---------- état ---------- */
+// S.dim / S.col = le panneau d'édition (modèle) ; S.eff.dim[id] / S.eff.col[id] = l'effet que porte chaque fixture
+const PARAMK=['form','dir','bpm','low','high','width','attack','decay','cmode','a','b'];
+const PHASEK=['ps','pe','groups','blocks','wings'];
+function defLayer(o){const L=Object.assign({on:true,form:'sin',dir:'>',bpm:60,low:0,high:100,ps:0,pe:360,width:100,attack:25,decay:25,groups:0,blocks:1,wings:1,cmode:'two',a:'#ff2d1a',b:'#2b6dff'},o||{});delete L.sel;delete L.stomped;return L}
+// écrit les réglages du modèle L sur les fixtures ids ; la phase est répartie selon leur ordre dans ids
+function applyTo(E,L,ids,keys){
+  const N=ids.length,phase=!keys||keys.some(k=>PHASEK.includes(k));
+  ids.forEach((id,i)=>{
+    const fresh=!E[id];const e=fresh?(E[id]={}):E[id];
+    for(const k of(fresh||!keys)?PARAMK:keys)e[k]=L[k];
+    if(fresh||phase){for(const k of PHASEK)e[k]=L[k];const r=phaseOf(L,i,N);e.p=r.p;e.ph=r.ph}
+  });
+}
+// chaque page a son propre layout, sa sélection, ses valeurs statiques et ses effets ; la page active est copiée à plat dans S
+const PAGEK=['fx','nextId','sel','stat','eff','dim','col'];
+function demoPage(){
+  const fx=[];let id=1;
+  for(let r=0;r<2;r++)for(let c=0;c<8;c++)fx.push({id:id++,x:c,y:r*1.5});
+  const dim=defLayer({form:'sin',bpm:50,low:5,high:100,ps:0,pe:360}),col=defLayer({on:false,form:'sin',bpm:12,ps:0,pe:180});
+  const eff={dim:{},col:{}};applyTo(eff.dim,dim,fx.map(f=>f.id));
+  return{name:'Démo 2×8',fx,nextId:id,sel:[],stat:{},eff,dim,col};
+}
+function emptyPage(name){return{name,fx:[],nextId:1,sel:[],stat:{},eff:{dim:{},col:{}},dim:defLayer(),col:defLayer({on:false})}}
+function demo(){
+  const pg=demoPage(),s={pages:[pg],page:0,mode:'select',snap:true,tab:'dim',add:{line:8,mc:8,mr:4,circ:12}};
+  for(const k of PAGEK)s[k]=pg[k];
+  return s;
+}
+function load(){try{return normalize(JSON.parse(localStorage.getItem(STORE)))}catch(e){return null}}
+// valide et met à niveau un état (sauvegarde locale ou fichier importé) ; renvoie null s'il n'est pas reconnu
+function normalize(s){
+  {
+    if(s&&Array.isArray(s.fx)&&s.dim&&s.col&&s.eff!==null){
+      for(const L of[s.dim,s.col])if(L.form==='stomp')L.form='sin';
+      if(!s.eff){ // ancienne version : une sélection par couche → effet par fixture
+        s.eff={dim:{},col:{}};
+        for(const k of['dim','col']){const ids=Array.isArray(s[k].sel)?s[k].sel:[],st=new Set(s[k].stomped||[]);applyTo(s.eff[k],defLayer(s[k]),ids);for(const id of st)delete s.eff[k][id]}
+      }
+      s.dim=defLayer(s.dim);s.col=defLayer(s.col);
+      s.add=Object.assign({line:8,mc:8,mr:4,circ:12},s.add||{});s.sel=s.sel||[];s.stat=s.stat||{};
+      if(!Array.isArray(s.pages)||!s.pages.length){s.pages=[{name:'Page 1'}];s.page=0} // ancienne version : un seul layout
+      s.page=Math.max(0,Math.min(s.pages.length-1,s.page|0));
+      return s}
+  }
+  return null;
+}
+let S=load()||demo();
+let saveT;
+function storeActive(){const pg=S.pages[S.page];for(const k of PAGEK)pg[k]=S[k]}
+function save(){storeActive();clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){}},300)}
+
+let t=0,last=performance.now();
+let playing=!matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- moteur d'effet ---------- */
+const FORMS={
+  sin:u=>(1-Math.cos(2*Math.PI*u))/2,
+  cos:u=>(1+Math.cos(2*Math.PI*u))/2,
+  pwm:(u,L)=>u<.5?FORMS.chase(u/.5,L):0,
+  rampup:u=>u,
+  rampdown:u=>1-u,
+  chase:(u,L)=>{const a=L.attack/100,d=L.decay/100;let v=1;if(a>0&&u<a)v=Math.min(v,u/a);if(d>0&&u>1-d)v=Math.min(v,(1-u)/d);return Math.max(0,v)}
+};
+function hash(a,b){let h=(Math.imul(a|0,374761393)+Math.imul(b|0,668265263))|0;h=Math.imul(h^(h>>>13),1274126177);h^=h>>>16;return (h>>>0)/4294967295}
+
+// index virtuel après Wings → Groups → Blocks, puis phase
+function phaseOf(L,i,N){
+  let M=N,p=i;
+  const w=Math.max(1,Math.min(L.wings,N));
+  if(w>1){const len=Math.ceil(N/w);const wi=Math.floor(i/len);p=i%len;if(wi%2)p=len-1-p;M=len}
+  if(L.groups>0){p=p%L.groups;M=L.groups}
+  const B=Math.max(1,L.blocks);p=Math.floor(p/B);M=Math.max(1,Math.ceil(M/B));
+  return{p,ph:L.ps+(L.pe-L.ps)*p/M};
+}
+// valeur de l'effet porté par une fixture (e = ses réglages + sa phase ph)
+function evalEff(e,T){
+  const c=T*e.bpm/60,ph=e.ph;let x;
+  if(e.dir==='<')x=-c-ph/360;
+  else if(e.dir==='<>'){const k=Math.floor(c),f=c-k;x=(k%2?1-f:f)-ph/360}
+  else x=c-ph/360;
+  const u=x-Math.floor(x),W=e.width/100;
+  let v;
+  if(u>=W)v=0;
+  else v=e.form==='random'?hash(Math.floor(x),e.p):(FORMS[e.form]||FORMS.sin)(u/W,e);
+  return{v:clamp01((e.low+(e.high-e.low)*v)/100),u};
+}
+function clamp01(v){return Math.max(0,Math.min(1,v))}
+function curveAt(L,u){
+  const W=L.width/100;let v;
+  if(u>=W)v=0;else v=L.form==='random'?.5:FORMS[L.form](u/W,L);
+  return clamp01((L.low+(L.high-L.low)*v)/100);
+}
+function hex(h){const n=parseInt(h.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255]}
+function mix(a,b,k){return[a[0]+(b[0]-a[0])*k,a[1]+(b[1]-a[1])*k,a[2]+(b[2]-a[2])*k]}
+function hsv(h){const f=n=>{const k=(n+h/60)%6;return 255*(1-Math.max(0,Math.min(k,4-k,1)))};return[f(5),f(3),f(1)]}
+function colorFor(L,v){return L.cmode==='rainbow'?hsv(v*360):mix(hex(L.a),hex(L.b),v)}
+function mapOf(arr){const m=new Map();arr.forEach((id,i)=>m.set(id,i));return m}
+
+/* ---------- vue layout ---------- */
+const cv=$('#cv'),ctx=cv.getContext('2d');
+let sc=40,ox=0,oy=0,viewLock=false;
+function resize(){cv.width=Math.round(cv.clientWidth*dpr);cv.height=Math.round(cv.clientHeight*dpr)}
+new ResizeObserver(resize).observe(cv);
+function fit(W,H){
+  let x0=0,x1=7,y0=0,y1=4;
+  if(S.fx.length){x0=y0=Infinity;x1=y1=-Infinity;for(const f of S.fx){x0=Math.min(x0,f.x);x1=Math.max(x1,f.x);y0=Math.min(y0,f.y);y1=Math.max(y1,f.y)}}
+  const m=S.mode==='edit'?2:1;
+  sc=Math.min(W/(x1-x0+2*m),(H-14)/(y1-y0+2*m),72);
+  ox=W/2-(x0+x1)/2*sc;oy=(H+14)/2-(y0+y1)/2*sc;
+}
+function rr(c,x,y,w,h,r){c.beginPath();if(c.roundRect)c.roundRect(x,y,w,h,r);else c.rect(x,y,w,h)}
+
+function draw(){
+  const W=cv.clientWidth,H=cv.clientHeight;if(!W||!H)return;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle=C.stage;ctx.fillRect(0,0,W,H);
+  if(!viewLock)fit(W,H);
+  // trame de grille
+  if(sc>=12){
+    ctx.fillStyle=S.mode==='edit'?'rgba(243,178,58,.22)':'rgba(255,255,255,.07)';
+    const step=S.snap&&S.mode==='edit'?.5:1;
+    for(let gx=Math.floor(-ox/sc/step)*step;gx*sc+ox<W;gx+=step)for(let gy=Math.floor(-oy/sc/step)*step;gy*sc+oy<H;gy+=step)ctx.fillRect(ox+gx*sc-1,oy+gy*sc-1,2,2);
+  }
+  if(!S.fx.length){
+    ctx.fillStyle=C.muted;ctx.font='500 14px "Barlow",system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(S.mode==='edit'?'Tape sur la grille pour poser un carré':'Layout vide : passe en mode Éditer',W/2,H/2);return;
+  }
+  const ED=S.eff.dim,EC=S.eff.col,sm=mapOf(S.sel);
+  const s=sc*.82,r=Math.min(6,s*.14),glow=S.fx.length<=160;
+  for(const f of S.fx){
+    let d,rgb=[255,255,255];
+    const de=ED[f.id];
+    d=(S.dim.on&&de)?evalEff(de,t).v:(S.stat[f.id]||0);
+    if(S.col.on){const ce=EC[f.id];if(ce)rgb=colorFor(ce,evalEff(ce,t).v)}
+    const o=mix(OFF,rgb,d);
+    const cx=ox+f.x*sc,cy=oy+f.y*sc;
+    if(glow&&d>.04){ctx.shadowColor=`rgba(${rgb[0]|0},${rgb[1]|0},${rgb[2]|0},${.85*d})`;ctx.shadowBlur=s*.55*d}else ctx.shadowBlur=0;
+    ctx.fillStyle=`rgb(${o[0]|0},${o[1]|0},${o[2]|0})`;
+    rr(ctx,cx-s/2,cy-s/2,s,s,r);ctx.fill();ctx.shadowBlur=0;
+    if(s>=22){
+      const lum=(.3*o[0]+.59*o[1]+.11*o[2])/255;
+      ctx.fillStyle=lum>.55?'rgba(0,0,0,.55)':'rgba(255,255,255,.42)';
+      ctx.font=`500 ${Math.min(11,s*.28)}px "IBM Plex Mono",monospace`;ctx.textAlign='right';ctx.textBaseline='bottom';
+      ctx.fillText(f.id,cx+s/2-3,cy+s/2-2);
+    }
+    const k=sm.get(f.id);
+    if(k!==undefined){
+      ctx.strokeStyle=C.accent;ctx.lineWidth=2;rr(ctx,cx-s/2-2.5,cy-s/2-2.5,s+5,s+5,r+2);ctx.stroke();
+      const fs=Math.max(9,Math.min(12,s*.3));ctx.font=`600 ${fs}px "IBM Plex Mono",monospace`;
+      const txt=String(k+1),tw=ctx.measureText(txt).width+6;
+      ctx.fillStyle=C.accent;rr(ctx,cx-s/2-2.5,cy-s/2-2.5,tw,fs+5,3);ctx.fill();
+      ctx.fillStyle=C.ink;ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText(txt,cx-s/2+.5,cy-s/2);
+    }
+  }
+}
+
+function drawScope(){
+  const c=document.getElementById('scope');if(!c)return;
+  const L=S[S.tab],E=S.eff[S.tab];if(!L||!E)return;
+  const W=c.clientWidth,H=c.clientHeight;if(!W)return;
+  if(c.width!==Math.round(W*dpr)||c.height!==Math.round(H*dpr)){c.width=Math.round(W*dpr);c.height=Math.round(H*dpr)}
+  const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,W,H);
+  const pl=12,pr=12,pt=10,pb=18,gw=W-pl-pr,gh=H-pt-pb;
+  x.strokeStyle=C.line;x.lineWidth=1;
+  for(const q of[0,.25,.5,.75,1]){const px=Math.round(pl+q*gw)+.5;x.beginPath();x.moveTo(px,pt);x.lineTo(px,pt+gh);x.stroke()}
+  x.fillStyle=C.muted;x.font='500 10px "IBM Plex Mono",monospace';x.textBaseline='bottom';
+  [['0°',0,'left'],['180°',.5,'center'],['360°',1,'right']].forEach(([s,q,a])=>{x.textAlign=a;x.fillText(s,pl+q*gw,H-2)});
+  x.strokeStyle=C.muted;x.lineWidth=1.5;if(L.form==='random')x.setLineDash([4,4]);
+  x.beginPath();for(let i=0;i<=160;i++){const u=i/160,v=curveAt(L,Math.min(u,.9999));const px=pl+u*gw,py=pt+(1-v)*gh;i?x.lineTo(px,py):x.moveTo(px,py)}x.stroke();x.setLineDash([]);
+  // points : les fixtures sélectionnées qui portent l'effet (ou toutes s'il n'y a pas de sélection)
+  const ids=S.sel.length?S.sel.filter(id=>E[id]):Object.keys(E);
+  for(const id of ids){
+    const e=E[id],r=evalEff(e,t);
+    const px=pl+r.u*gw,py=pt+(1-r.v)*gh;
+    let fill=C.accent;
+    if(S.tab==='col'){const q=colorFor(e,r.v);fill=`rgb(${q[0]|0},${q[1]|0},${q[2]|0})`}
+    x.beginPath();x.arc(px,py,4,0,Math.PI*2);x.fillStyle=fill;x.fill();x.lineWidth=1.5;x.strokeStyle=C.stage;x.stroke();
+  }
+}
+
+function frame(now){
+  const dt=Math.min(.1,(now-last)/1000);last=now;if(playing)t+=dt;
+  draw();drawScope();requestAnimationFrame(frame);
+}
+
+/* ---------- interactions sur le layout ---------- */
+let drag=null;
+function toGrid(e){const b=cv.getBoundingClientRect();return{x:(e.clientX-b.left-ox)/sc,y:(e.clientY-b.top-oy)/sc}}
+function hitTest(g){for(let i=S.fx.length-1;i>=0;i--){const f=S.fx[i];if(Math.abs(g.x-f.x)<=.5&&Math.abs(g.y-f.y)<=.5)return f}return null}
+const byId=id=>S.fx.find(f=>f.id===id);
+const snapV=v=>S.snap?Math.round(v*2)/2:+v.toFixed(2);
+function swipe(f){
+  if(drag.done.has(f.id))return;drag.done.add(f.id);
+  const k=S.sel.indexOf(f.id);
+  if(drag.adding===null)drag.adding=k<0;
+  if(drag.adding&&k<0)S.sel.push(f.id);
+  else if(!drag.adding&&k>=0)S.sel.splice(k,1);
+  hud();
+}
+cv.addEventListener('pointerdown',e=>{
+  cv.setPointerCapture(e.pointerId);viewLock=true;
+  const g=toGrid(e),hit=hitTest(g);
+  drag={start:g,hit,moved:false,adding:null,done:new Set(),orig:null};
+  if(S.mode==='select'){if(hit)swipe(hit)}
+  else if(hit){const grp=S.sel.includes(hit.id)?S.sel.map(byId).filter(Boolean):[hit];drag.orig=grp.map(f=>({f,x:f.x,y:f.y}))}
+});
+cv.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  const g=toGrid(e),dx=g.x-drag.start.x,dy=g.y-drag.start.y;
+  if(Math.hypot(dx,dy)>.25)drag.moved=true;
+  if(S.mode==='select'){const h=hitTest(g);if(h)swipe(h)}
+  else if(drag.orig&&drag.moved){for(const o of drag.orig){o.f.x=snapV(o.x+dx);o.f.y=snapV(o.y+dy)}}
+});
+function endDrag(){
+  if(!drag)return;
+  if(S.mode==='edit'&&!drag.moved){
+    if(drag.hit){const k=S.sel.indexOf(drag.hit.id);k<0?S.sel.push(drag.hit.id):S.sel.splice(k,1)}
+    else{const x=snapV(drag.start.x),y=snapV(drag.start.y);if(!S.fx.some(f=>Math.abs(f.x-x)<.6&&Math.abs(f.y-y)<.6))S.fx.push({id:S.nextId++,x,y})}
+  }
+  drag=null;viewLock=false;afterChange();
+}
+cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
+
+/* ---------- actions layout ---------- */
+function bottomY(){return S.fx.length?Math.max(...S.fx.map(f=>f.y))+1.5:0}
+function addMany(pts){const ids=[];for(const[x,y]of pts){ids.push(S.nextId);S.fx.push({id:S.nextId++,x,y})}S.sel=ids;afterChange()}
+function addLine(n){const y=bottomY();addMany(Array.from({length:n},(_,i)=>[i,y]))}
+function addMatrix(c,r){const y=bottomY(),p=[];for(let j=0;j<r;j++)for(let i=0;i<c;i++)p.push([i,y+j]);addMany(p)}
+function addCircle(n){const R=Math.max(1.5,n*1.15/(2*Math.PI)),cy=bottomY()+R,p=[];for(let i=0;i<n;i++){const a=-Math.PI/2+2*Math.PI*i/n;p.push([+(R+R*Math.cos(a)).toFixed(2),+(cy+R*Math.sin(a)).toFixed(2)])}addMany(p)}
+function deleteSel(){const s=new Set(S.sel);for(const id of s){delete S.stat[id];delete S.eff.dim[id];delete S.eff.col[id]}S.fx=S.fx.filter(f=>!s.has(f.id));S.sel=[];afterChange()}
+// le panneau affiche les valeurs de la première fixture sélectionnée qui porte l'effet, comme sur la console
+function loadBuffer(){for(const k of['dim','col']){const E=S.eff[k],id=S.sel.find(i=>E[i]);if(id!==undefined)for(const q of PARAMK.concat(PHASEK))S[k][q]=E[id][q]}}
+// un réglage modifié n'est écrit que sur les fixtures sélectionnées
+function touch(keys){if(S.tab==='dim'||S.tab==='col')applyTo(S.eff[S.tab],S[S.tab],S.sel,[].concat(keys))}
+function afterChange(){loadBuffer();save();hud();renderPanel()}
+
+/* ---------- pages ---------- */
+function openPage(i){S.page=i;const pg=S.pages[i];for(const k of PAGEK)S[k]=pg[k];S.sel=S.sel||[];afterChange()}
+function switchPage(i){storeActive();openPage(i)}
+function addPage(){storeActive();S.pages.push(emptyPage('Page '+(S.pages.length+1)));S.mode='edit';S.tab='layout';openPage(S.pages.length-1)}
+function dupPage(){storeActive();const c=JSON.parse(JSON.stringify(S.pages[S.page]));c.name=(c.name+' copie').slice(0,24);S.pages.splice(S.page+1,0,c);openPage(S.page+1)}
+function delPage(){if(S.pages.length<2)return;S.pages.splice(S.page,1);openPage(Math.min(S.page,S.pages.length-1))}
+function renderPages(){
+  const nav=$('#pages');nav.innerHTML='';
+  S.pages.forEach((pg,i)=>nav.append(h('button',{type:'button',class:'pg','aria-pressed':String(i===S.page),onclick:()=>{if(i!==S.page)switchPage(i)}},h('span',{class:'pgn'},String(i+1)),pg.name||'Sans nom')));
+  nav.append(h('button',{type:'button',class:'pg add',onclick:addPage},'+ Page'));
+  const act=nav.querySelector('[aria-pressed="true"]');if(act)act.scrollIntoView({block:'nearest',inline:'nearest'});
+}
+
+/* ---------- UI ---------- */
+function h(tag,props,...kids){
+  const e=document.createElement(tag);
+  for(const k in props||{}){const v=props[k];
+    if(k==='class')e.className=v;else if(k==='text')e.textContent=v;
+    else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);
+    else if(v===true)e.setAttribute(k,'');else if(v!==false&&v!=null)e.setAttribute(k,v)}
+  for(const c of kids.flat()){if(c==null||c===false)continue;e.append(c.nodeType?c:document.createTextNode(c))}
+  return e;
+}
+function chips(opts,cur,pick,label){
+  return h('div',{class:'chips',role:'group','aria-label':label},opts.map(([v,t])=>h('button',{type:'button',class:'chip','aria-pressed':String(String(cur)===String(v)),onclick:()=>pick(v)},t)));
+}
+function chipRow(label,ctrl){return h('div',{class:'row wide'},h('span',{class:'lbl'},label),ctrl)}
+// remplace le chiffre par un champ de saisie ; Entrée ou sortie du champ valide, Échap annule
+function typeIn(btn,cur,min,max,commit,int){
+  const f=h('input',{type:'number',class:'typein',step:int?'1':'any',min,max,value:cur,'aria-label':btn.getAttribute('aria-label')});
+  let done=false;
+  const end=ok=>{
+    if(done)return;done=true;
+    if(ok){let v=parseFloat(String(f.value).replace(',','.'));if(!isNaN(v)){if(int)v=Math.round(v);v=Math.max(min,Math.min(max,+v.toFixed(2)));commit(v)}}
+    f.replaceWith(btn);
+  };
+  f.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();end(true)}else if(e.key==='Escape'){e.preventDefault();end(false)}});
+  f.addEventListener('blur',()=>end(true));
+  btn.replaceWith(f);f.focus();f.select();
+}
+// min/max = course du slider ; tmin/tmax = plage acceptée en saisie
+function slider(L,key,label,min,max,step,unit,tmin=min,tmax=max){
+  const id=`${S.tab}-${key}`;
+  const inp=h('input',{type:'range',id,min,max,step,value:L[key]});
+  const out=h('button',{type:'button',class:'val','aria-label':`Taper une valeur pour ${label}`},L[key]+unit);
+  const paint=()=>inp.style.setProperty('--p',Math.max(0,Math.min(100,(L[key]-min)/(max-min)*100))+'%');
+  const set=v=>{L[key]=v;inp.value=v;out.textContent=v+unit;paint();touch(key);save()};
+  inp.addEventListener('input',()=>set(+inp.value));
+  out.addEventListener('click',()=>typeIn(out,L[key],tmin,tmax,set));
+  paint();
+  return h('div',{class:'row'},h('label',{class:'lbl',for:id},label),inp,out);
+}
+function stepper(L,key,label,min,max,zero){
+  const fmt=()=>L[key]===0&&zero?zero:String(L[key]);
+  const out=h('button',{type:'button',class:'sval','aria-label':`Taper une valeur pour ${label}`},fmt());
+  const put=v=>{L[key]=Math.max(min,Math.min(max,v));out.textContent=fmt();touch(key);save()};
+  out.addEventListener('click',()=>typeIn(out,L[key],min,max,put,true));
+  return h('div',{class:'row wide'},h('span',{class:'lbl'},label),
+    h('div',{class:'stepper'},h('button',{type:'button',class:'sbtn','aria-label':label+' moins',onclick:()=>put(L[key]-1)},'−'),out,h('button',{type:'button',class:'sbtn','aria-label':label+' plus',onclick:()=>put(L[key]+1)},'+')));
+}
+function confirmBtn(label,action){
+  const b=h('button',{type:'button',class:'btn danger'},label);let armed=false,tm;
+  b.addEventListener('click',()=>{if(!armed){armed=true;b.textContent='Confirmer ?';b.classList.add('armed');tm=setTimeout(()=>{armed=false;b.textContent=label;b.classList.remove('armed')},3000)}else{clearTimeout(tm);action()}});
+  return b;
+}
+function orderText(a){if(!a.length)return'—';if(a.length<=7)return a.join(' › ');return a.slice(0,3).join(' › ')+' … '+a.slice(-2).join(' › ')}
+
+const FORM_OPTS=[['sin','Sin'],['cos','Cos'],['rampup','Ramp +'],['rampdown','Ramp −'],['pwm','PWM'],['chase','Chase'],['random','Random']];
+const DIR_OPTS=[['>','> Avant'],['<','< Arrière'],['<>','<> Bounce']];
+const PHASE_OPTS=[['0,0','0'],['0,360','0..360'],['0,180','0..180'],['0,720','0..720'],['360,0','360..0']];
+
+function buildLayer(p,key){
+  const L=S[key],E=S.eff[key],isCol=key==='col',N=S.sel.length;
+  const total=Object.keys(E).length,selIn=S.sel.filter(id=>E[id]).length;
+  p.append(
+    h('div',{class:'layerhead'},
+      h('div',{class:'lh-text'},h('div',{class:'lh-title'},isCol?'Couleur':'Dimmer'),
+        h('div',{class:'lh-sub'},`${total} fixture${total>1?'s':''} dans l'effet · ${selIn}/${N} sélectionnée${N>1?'s':''}`)),
+      h('button',{type:'button',class:'btn toggle','aria-pressed':String(L.on),onclick:()=>{L.on=!L.on;afterChange()}},L.on?'Actif':'Coupé')),
+    h('p',{class:'hint'},N
+      ?`Chaque réglage ne s'applique qu'aux ${N} fixture${N>1?'s':''} sélectionnée${N>1?'s':''}. Les autres gardent le leur.`
+      :"Rien de sélectionné : tu règles le modèle, aucune fixture ne change. Sélectionne des carrés sur le layout."),
+    h('div',{class:'btns'},
+      h('button',{type:'button',class:'btn primary',disabled:!N,onclick:()=>{applyTo(E,L,S.sel);afterChange()}},
+        N?`Appliquer tout à la sélection (${N})`:'Appliquer tout à la sélection'),
+      selIn?h('button',{type:'button',class:'btn',onclick:()=>{for(const id of S.sel)delete E[id];afterChange()}},'Retirer de la sélection'):null),
+    h('canvas',{class:'scope',id:'scope','aria-label':"Courbe de l'effet sur un cycle"}),
+    h('p',{class:'cap'},"Un cycle de l'effet. Chaque point est une fixture sélectionnée, placé selon sa phase."),
+    chipRow('Form',chips(FORM_OPTS,L.form,v=>{L.form=v;touch('form');afterChange()},'Form')),
+    chipRow('Dir',chips(DIR_OPTS,L.dir,v=>{L.dir=v;touch('dir');afterChange()},'Direction'))
+  );
+  if(isCol){
+    p.append(chipRow('Mode',chips([['two','2 couleurs'],['rainbow','Arc-en-ciel']],L.cmode,v=>{L.cmode=v;touch('cmode');afterChange()},'Mode couleur')));
+    if(L.cmode==='two'){
+      const ci=k=>{const i=h('input',{type:'color',id:'col-'+k,value:L[k]});i.addEventListener('input',()=>{L[k]=i.value;touch(k);save()});return h('label',{for:'col-'+k},k==='a'?'Low':'High',i)};
+      p.append(h('div',{class:'row wide'},h('span',{class:'lbl'},'Couleurs'),h('div',{class:'colors'},ci('a'),ci('b'))));
+    }
+  }
+  p.append(
+    slider(L,'bpm','Speed',0,240,1,' bpm',0,999),
+    slider(L,'low','Low',-100,100,1,' %',-300,300),
+    slider(L,'high','High',0,200,1,' %',-300,300),
+    slider(L,'ps','Phase ›',-720,720,15,'°',-3600,3600),
+    slider(L,'pe','Phase ‹',-720,720,15,'°',-3600,3600),
+    chipRow('',chips(PHASE_OPTS,`${L.ps},${L.pe}`,v=>{const[a,b]=v.split(',').map(Number);L.ps=a;L.pe=b;touch(['ps','pe']);afterChange()},'Préréglages de phase')),
+    slider(L,'width','Width',1,100,1,' %')
+  );
+  if(L.form==='chase'||L.form==='pwm')p.append(slider(L,'attack','Attack',0,100,1,' %'),slider(L,'decay','Decay',0,100,1,' %'));
+  const M=Math.max(1,N||64);
+  p.append(
+    h('h3',{class:'sub'},'MAtricks'),
+    stepper(L,'groups','Groups',0,M,'off'),
+    stepper(L,'blocks','Blocks',1,M),
+    stepper(L,'wings','Wings',1,M),
+    h('p',{class:'hint'},"La phase se répartit selon l'ordre de la sélection en cours. Wings miroite la sélection, Groups répète la répartition tous les N, Blocks donne la même phase à N fixtures consécutives.")
+  );
+}
+
+function buildLayout(p){
+  const num=k=>{const i=h('input',{class:'num',type:'number',inputmode:'numeric',min:1,max:64,id:'add-'+k,value:S.add[k],'aria-label':k});i.addEventListener('change',()=>{S.add[k]=Math.max(1,Math.min(64,parseInt(i.value)||1));i.value=S.add[k];save()});return i};
+  const fx=id=>byId(id)||{x:0,y:0};
+  const pg=S.pages[S.page];
+  const name=h('input',{class:'name',id:'pgname',type:'text',maxlength:24,value:pg.name||''});
+  name.addEventListener('input',()=>{pg.name=name.value.trim()||'Sans nom';renderPages();save()});
+  p.append(
+    h('h3',{class:'sub first'},`Page ${S.page+1} sur ${S.pages.length}`),
+    h('div',{class:'addrow'},h('label',{class:'lbl',for:'pgname'},'Nom'),name),
+    h('div',{class:'btns'},
+      h('button',{type:'button',class:'btn',onclick:dupPage},'Dupliquer la page'),
+      h('button',{type:'button',class:'btn',onclick:addPage},'Nouvelle page vide'),
+      S.pages.length>1?confirmBtn('Supprimer la page',delPage):null),
+    h('h3',{class:'sub'},'Édition'),
+    chipRow('Mode',chips([['select','Sélection'],['edit','Éditer']],S.mode,v=>{S.mode=v;afterChange()},'Mode')),
+    h('p',{class:'hint'},S.mode==='select'
+      ?"Tape ou glisse sur les carrés : ils entrent dans la sélection dans cet ordre, comme sur la console. Retape pour retirer."
+      :"Tape une case vide pour poser un carré. Glisse pour déplacer, la sélection bouge en bloc. Tape un carré pour le (dé)sélectionner."),
+    chipRow('Grille',chips([['1','Aimant ½'],['0','Libre']],S.snap?'1':'0',v=>{S.snap=v==='1';afterChange()},'Grille')),
+    h('h3',{class:'sub'},'Ajouter'),
+    h('div',{class:'addrow'},h('span',{class:'lbl'},'Ligne'),num('line'),h('span',{class:'sp'}),h('button',{type:'button',class:'btn',onclick:()=>addLine(S.add.line)},'Ajouter')),
+    h('div',{class:'addrow'},h('span',{class:'lbl'},'Matrice'),num('mc'),h('span',{class:'x'},'×'),num('mr'),h('span',{class:'sp'}),h('button',{type:'button',class:'btn',onclick:()=>addMatrix(S.add.mc,S.add.mr)},'Ajouter')),
+    h('div',{class:'addrow'},h('span',{class:'lbl'},'Cercle'),num('circ'),h('span',{class:'sp'}),h('button',{type:'button',class:'btn',onclick:()=>addCircle(S.add.circ)},'Ajouter')),
+    h('p',{class:'hint'},'Les nouveaux carrés sont posés sous le layout et sélectionnés.'),
+    h('h3',{class:'sub'},`Sélection · ${S.sel.length}`),
+    h('p',{class:'order'},S.sel.length?S.sel.join(' › '):'Rien de sélectionné'),
+    h('div',{class:'btns'},
+      h('button',{type:'button',class:'btn',onclick:()=>{S.sel=S.fx.map(f=>f.id).sort((a,b)=>a-b);afterChange()}},'Tout (ID)'),
+      h('button',{type:'button',class:'btn',disabled:S.sel.length<2,onclick:()=>{S.sel.sort((a,b)=>fx(a).x-fx(b).x||fx(a).y-fx(b).y);afterChange()}},'Trier ← →'),
+      h('button',{type:'button',class:'btn',disabled:S.sel.length<2,onclick:()=>{S.sel.sort((a,b)=>fx(a).y-fx(b).y||fx(a).x-fx(b).x);afterChange()}},'Trier ↑ ↓'),
+      h('button',{type:'button',class:'btn',disabled:S.sel.length<2,onclick:()=>{S.sel.reverse();afterChange()}},'Inverser'),
+      h('button',{type:'button',class:'btn',disabled:S.sel.length<2,onclick:()=>{const a=S.sel;for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}afterChange()}},'Shuffle'),
+      h('button',{type:'button',class:'btn',disabled:!S.sel.length,onclick:()=>{S.sel=[];afterChange()}},'Vider')),
+    h('h3',{class:'sub'},'Dimmer statique'),
+    h('p',{class:'hint'},"Valeur des fixtures hors effet dimmer ou stompées. Par défaut elles sont à 0, comme sur la console."),
+    h('div',{class:'btns'},[['At 0',0],['At 50',.5],['At Full',1]].map(([lab,v])=>
+      h('button',{type:'button',class:'btn',disabled:!S.sel.length,onclick:()=>{for(const id of S.sel)S.stat[id]=v;afterChange()}},lab))),
+    h('div',{class:'btns'},S.sel.length?confirmBtn(`Supprimer ${S.sel.length} carré${S.sel.length>1?'s':''}`,deleteSel):null),
+    h('h3',{class:'sub'},'Cette page'),
+    h('div',{class:'btns'},
+      confirmBtn('Remplacer par la démo',()=>{const d=demoPage();for(const k of PAGEK)S[k]=d[k];afterChange()}),
+      confirmBtn('Vider la page',()=>{const d=emptyPage(pg.name);for(const k of PAGEK)S[k]=d[k];S.mode='edit';afterChange()})),
+    buildBackup()
+  );
+}
+
+/* ---------- sauvegarde : export / import de toutes les pages ---------- */
+function exportText(){storeActive();return JSON.stringify(S)}
+function importText(txt){
+  let n=null;try{n=normalize(JSON.parse(txt))}catch(e){}
+  if(!n)return false;
+  const keep={tab:S.tab};S=n;S.tab=keep.tab;afterChange();return true;
+}
+function buildBackup(){
+  const msg=h('p',{class:'hint',role:'status'},"Toutes les pages tiennent dans un seul texte. Copie-le ici, colle-le dans l'autre version de l'app.");
+  const say=t=>{msg.textContent=t};
+  const area=h('textarea',{class:'paste',id:'backup-paste',rows:3,placeholder:'Colle une sauvegarde ici',spellcheck:'false'});
+  const file=h('input',{type:'file',id:'backup-file',accept:'.json,application/json,text/plain',hidden:true});
+  file.addEventListener('change',()=>{const f=file.files[0];if(!f)return;f.text().then(t=>{if(!importText(t))say("Ce fichier n'est pas une sauvegarde de l'Atelier.")})});
+  const copy=h('button',{type:'button',class:'btn',onclick:()=>{
+    const t=exportText();
+    const ok=()=>say(`Sauvegarde copiée (${S.pages.length} page${S.pages.length>1?'s':''}).`);
+    const fallback=()=>{area.value=t;area.focus();area.select();say('Copie bloquée : le texte est sélectionné dans le champ, copie-le à la main.')};
+    try{navigator.clipboard.writeText(t).then(ok,fallback)}catch(e){fallback()}
+  }},'Copier la sauvegarde');
+  const dl=h('button',{type:'button',class:'btn',onclick:()=>{
+    const a=h('a',{href:URL.createObjectURL(new Blob([exportText()],{type:'application/json'})),download:`atelier-effets-ma2-${new Date().toISOString().slice(0,10)}.json`});
+    document.body.append(a);a.click();a.remove();say('Fichier enregistré dans tes téléchargements.');
+  }},'Enregistrer un fichier');
+  const imp=h('button',{type:'button',class:'btn primary',onclick:()=>{
+    if(!area.value.trim()){say("Colle d'abord une sauvegarde dans le champ.");return}
+    if(!importText(area.value))say("Ce texte n'est pas une sauvegarde de l'Atelier. Vérifie qu'il est complet.");
+  }},'Importer le texte collé');
+  return h('div',{},
+    h('h3',{class:'sub'},'Sauvegarde'),msg,
+    h('div',{class:'btns'},copy,STANDALONE?dl:null,STANDALONE?h('button',{type:'button',class:'btn',onclick:()=>file.click()},'Ouvrir un fichier'):null),
+    area,file,
+    h('div',{class:'btns'},imp),
+    h('p',{class:'hint'},"Importer remplace toutes tes pages actuelles."));
+}
+
+function renderPanel(){
+  renderPages();
+  const p=$('#panel'),top=p.scrollTop;p.innerHTML='';
+  document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===S.tab)));
+  $('#ledDim').classList.toggle('on',S.dim.on);$('#ledCol').classList.toggle('on',S.col.on);
+  if(S.tab==='layout')buildLayout(p);else buildLayer(p,S.tab);
+  p.scrollTop=top;
+}
+function hud(){
+  $('#hudMode').textContent=S.mode==='edit'?'Éditer':'Sélection';
+  $('#hudSel').textContent=`${S.fx.length} fixtures · ${S.sel.length} sél.`;
+  $('#stage').classList.toggle('edit',S.mode==='edit');
+  $('#stomp').disabled=!S.sel.length;
+}
+$('#stomp').addEventListener('click',()=>{
+  for(const id of S.sel){delete S.eff.dim[id];delete S.eff.col[id]}
+  afterChange();
+});
+function playBtn(){
+  $('#play').innerHTML=playing
+    ?'<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="1" y="1" width="3.5" height="10" fill="currentColor"/><rect x="7.5" y="1" width="3.5" height="10" fill="currentColor"/></svg>Pause'
+    :'<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1l9 5-9 5z" fill="currentColor"/></svg>Lecture';
+}
+$('#play').addEventListener('click',()=>{playing=!playing;playBtn()});
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{S.tab=b.dataset.tab;save();$('#panel').scrollTop=0;renderPanel()}));
+
+// écran allumé pendant la lecture (refusé sans bruit si le navigateur ne le permet pas)
+let wake=null;
+async function keepAwake(){
+  try{
+    if(playing&&document.visibilityState==='visible'&&!wake&&navigator.wakeLock){wake=await navigator.wakeLock.request('screen');wake.addEventListener('release',()=>{wake=null})}
+    else if(!playing&&wake){await wake.release();wake=null}
+  }catch(e){wake=null}
+}
+document.addEventListener('visibilitychange',keepAwake);
+$('#play').addEventListener('click',keepAwake);
+cv.addEventListener('pointerdown',keepAwake,{once:true});
+
+// version installée (GitHub Pages) : hors ligne via le service worker
+if(STANDALONE&&'serviceWorker'in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+
+resize();hud();playBtn();renderPanel();requestAnimationFrame(frame);keepAwake();
+})();
+</script>
+
+</body>
+</html>
